@@ -1,6 +1,8 @@
-#SCRFTPRequest
-######Simple to use FTP component for iPhone and Mac OS X
+SCRFTPRequest
 =============
+
+>Formerly S7FTPRequest
+
 This project was inspired by a marvelous lib that I'm using in all my apps that involve network interactions (I can hardly remember one without any) [ASIHTTPRequest](https://github.com/pokeb/asi-http-request).
 
 This is the product of composing together [ASIHTTPRequest](https://github.com/pokeb/asi-http-request) design solutions and [SimpleFTPSample](http://developer.apple.com/library/ios/#samplecode/SimpleFTPSample/Introduction/Intro.html) techniques.
