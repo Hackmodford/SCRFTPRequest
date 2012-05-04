@@ -42,51 +42,50 @@ Implement the callbacks (they are performed on the main thread, so you can invok
 ```objective-c
 - (void)uploadFinished:(SCRFTPRequest *)request { 
 
-NSLog(@"Upload finished."); 
-[request release]; 
+	NSLog(@"Upload finished."); 
+	[request release]; 
 }
 
 - (void)uploadFailed:(SCRFTPRequest *)request {
 
-NSLog(@"Upload failed: %@", [request.error localizedDescription]); 
-[request release]; 
+	NSLog(@"Upload failed: %@", [request.error localizedDescription]); 
+	[request release]; 
 }
 
 - (void)uploadWillStart:(SCRFTPRequest *)request { 
 
-NSLog(@"Will transfer %d bytes.", request.fileSize); 
+	NSLog(@"Will transfer %d bytes.", request.fileSize); 
 }
 
 - (void)uploadBytesWritten:(SCRFTPRequest *)request { 
 
-NSLog(@"Transferred: %d", request.bytesWritten); 
+	NSLog(@"Transferred: %d", request.bytesWritten); 
 }
 
 - (void)requestStatusChanged:(SCRFTPRequest *)request {
 
-switch (request.status) { 
-case SCRFTPRequestStatusOpenNetworkConnection: 
-NSLog(@"Opened connection."); 
-break; 
-case SCRFTPRequestStatusReadingFromStream: 
-NSLog(@"Reading from stream..."); 
-break; 
-case SCRFTPRequestStatusWritingToStream: 
-NSLog(@"Writing to stream..."); 
-break; 
-case SCRFTPRequestStatusClosedNetworkConnection: 
-NSLog(@"Closed connection."); 
-break; 
-case SCRFTPRequestStatusError: 
-NSLog(@"Error occurred."); 
-break; 
-} 
+	switch (request.status) { 
+	case SCRFTPRequestStatusOpenNetworkConnection: 
+		NSLog(@"Opened connection."); 
+		break; 
+	case SCRFTPRequestStatusReadingFromStream: 
+		NSLog(@"Reading from stream..."); 
+		break; 
+	case SCRFTPRequestStatusWritingToStream: 
+		NSLog(@"Writing to stream..."); 
+		break; 
+	case SCRFTPRequestStatusClosedNetworkConnection: 
+		NSLog(@"Closed connection."); 
+		break; 
+	case SCRFTPRequestStatusError: 
+		NSLog(@"Error occurred."); 
+		break; 
+	} 
 }
 ```
 Cancel the operation this way
 
 ```objective-c
-
 [ftpRequest cancelRequest];
 ```
 
@@ -94,7 +93,6 @@ Cancel the operation this way
 To create a directory you will need practically the same infrastructure except for the initialization code may look like this:
 
 ```objective-c
-
 SCRFTPRequest *ftpRequest = [[SCRFTPRequest alloc] initWithURL:
 [NSURL URLWithString:@"ftp://192.168.1.101/"]
 toCreateDirectory:@"SCRFTPRequest"];
@@ -109,5 +107,4 @@ ftpRequest.willStartSelector = @selector(createWillStart:);
 ftpRequest.didChangeStatusSelector = @selector(requestStatusChanged:);
 	
 [ftpRequest startRequest];
-
 ```
