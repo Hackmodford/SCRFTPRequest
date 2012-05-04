@@ -22,8 +22,7 @@ Since SCRFTPRequest is a NSOperation, you can easily add it to NSOperationQueue 
 Initialization
 
 ```objective-c
-SCRFTPRequest *ftpRequest = [[SCRFTPRequest alloc] initWithURL: 
-[NSURL URLWithString:@"ftp://192.168.1.101/"] 
+SCRFTPRequest *ftpRequest = [[SCRFTPRequest alloc] initWithURL:[NSURL URLWithString:@"ftp://192.168.1.101/"] 
 toUploadFile:[[NSBundle mainBundle] pathForResource:@"Info" ofType:@"plist"]];
 
 ftpRequest.username = @"testuser"; 
@@ -95,8 +94,7 @@ Cancel the operation this way
 To create a directory you will need practically the same infrastructure except for the initialization code may look like this:
 
 ```objective-c
-SCRFTPRequest *ftpRequest = [[SCRFTPRequest alloc] initWithURL:
-[NSURL URLWithString:@"ftp://192.168.1.101/"]
+SCRFTPRequest *ftpRequest = [[SCRFTPRequest alloc] initWithURL:[NSURL URLWithString:@"ftp://192.168.1.101/"] 
 toCreateDirectory:@"SCRFTPRequest"];
   
 ftpRequest.username = @"testuser";
