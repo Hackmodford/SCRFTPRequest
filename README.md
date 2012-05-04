@@ -15,7 +15,7 @@ This is the product of composing together [ASIHTTPRequest](https://github.com/po
 
 Since SCRFTPRequest is a NSOperation, you can easily add it to NSOperationQueue for asynchronous invokation. However, it is possible to use SCRFTPRequest as a plain NSObject. Here are some basic instructions. (I'm going to add more details in time.)
 
-##Upload
+###Upload
 
 Initialization
 
