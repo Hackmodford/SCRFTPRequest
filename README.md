@@ -1,22 +1,23 @@
 SCRFTPRequest
 =============
-
 >Formerly S7FTPRequest
 
-*SCRFTPRequest was created by [Aleksej Nesterow](https://github.com/nesterow). All code and this readme was written by him.*
+***
+*SCRFTPRequest was created by [Aleksej Nesterow](https://github.com/nesterow). All code and most of this readme was written by him.*
 
 This project was inspired by a marvelous lib that I'm using in all my apps that involve network interactions (I can hardly remember one without any) [ASIHTTPRequest](https://github.com/pokeb/asi-http-request).
 
 This is the product of composing together [ASIHTTPRequest](https://github.com/pokeb/asi-http-request) design solutions and [SimpleFTPSample](http://developer.apple.com/library/ios/#samplecode/SimpleFTPSample/Introduction/Intro.html) techniques.
 
 #Features
+***
 * Item Upload and Create directory operations. More to come soon. 
 * Item Based on CFNetwork, but provides friendly Objective C API with delegates to handle progress and status of the request. 
 * Item Inherits from NSOperation. 
 * Item Supports authentication. 
 
 #Using the Component
-
+***
 Since SCRFTPRequest is a NSOperation, you can easily add it to NSOperationQueue for asynchronous invokation. However, it is possible to use SCRFTPRequest as a plain NSObject. Here are some basic instructions. (I'm going to add more details in time.)
 
 ###Upload
