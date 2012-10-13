@@ -437,7 +437,7 @@ static NSOperationQueue *sharedRequestQueue = nil;
 					return;
                 } else {
                     _bufferOffset = 0;
-                    _bufferLimit = bytesRead;
+                    _bufferLimit = (UInt32)bytesRead;
                 }
             }
             
