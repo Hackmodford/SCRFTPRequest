@@ -3,7 +3,7 @@ SCRFTPRequest
 >Formerly S7FTPRequest
 
 ***
-*SCRFTPRequest was created by [Aleksej Nesterow](https://github.com/nesterow). All code and most of this readme was written by him.*
+*SCRFTPRequest was created by [Alaksiej Nieścieraŭ](https://github.com/nesterow). All code and most of this readme was written by him.*
 
 This project was inspired by a marvelous lib that I'm using in all my apps that involve network interactions (I can hardly remember one without any) [ASIHTTPRequest](https://github.com/pokeb/asi-http-request).
 
