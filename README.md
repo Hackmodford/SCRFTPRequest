@@ -11,10 +11,10 @@ This is the product of composing together [ASIHTTPRequest](https://github.com/po
 
 #Features
 ***
-* Item Upload and Create directory operations. More to come soon. 
-* Item Based on `CFNetwork`, but provides friendly Objective-C API with delegates to handle progress and status of the request. 
-* Item Inherits from `NSOperation`. 
-* Item Supports authentication. 
+* Upload and Create directory operations. More to come soon. 
+* Based on `CFNetwork`, but provides friendly Objective-C API with delegates to handle progress and status of the request. 
+* Inherits from `NSOperation`. 
+* Supports authentication. 
 * ARC ready
 
 #Using the Component
