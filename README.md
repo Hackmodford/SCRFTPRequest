@@ -12,63 +12,86 @@ This is the product of composing together [ASIHTTPRequest](https://github.com/po
 #Features
 ***
 * Item Upload and Create directory operations. More to come soon. 
-* Item Based on CFNetwork, but provides friendly Objective C API with delegates to handle progress and status of the request. 
-* Item Inherits from NSOperation. 
+* Item Based on `CFNetwork`, but provides friendly Objective-C API with delegates to handle progress and status of the request. 
+* Item Inherits from `NSOperation`. 
 * Item Supports authentication. 
+* ARC ready
 
 #Using the Component
 ***
-Since SCRFTPRequest is a NSOperation, you can easily add it to NSOperationQueue for asynchronous invokation. However, it is possible to use SCRFTPRequest as a plain NSObject. Here are some basic instructions. (I'm going to add more details in time.)
+Since `SCRFTPRequest` is a `NSOperation`, you can easily add it to `NSOperationQueue` for asynchronous invokation. However, it is possible to use `SCRFTPRequest` as a plain `NSObject`. Here are some basic instructions. (I'm going to add more details in time.)
+
+The request's delegate must implement the `SCRFTPRequestDelegate` protocol.
+
+### Delegate
+
+```
+@protocol SCRFTPRequestDelegate <NSObject>
+
+/** Called on the delegate when the request completes successfully. */
+- (void)ftpRequestDidFinish:(SCRFTPRequest *)request;
+/** Called on the delegate when the request fails. */
+- (void)ftpRequest:(SCRFTPRequest *)request didFailWithError:(NSError *)error;
+
+@optional
+/** Called on the delegate when the transfer is about to start. */
+- (void)ftpRequestWillStart:(SCRFTPRequest *)request;
+/** Called on the delegate when the status of the request instance changed. */
+- (void)ftpRequestDidChangeStatus:(SCRFTPRequest *)request;
+/** Called on the delegate when some amount of bytes were transferred. */
+- (void)ftpRequest:(SCRFTPRequest *)request didWriteBytes:(NSUInteger)bytesWritten;
+
+@end
+```
 
 ###Upload
 
 Initialization
 
-```objective-c
+```
 SCRFTPRequest *ftpRequest = [[SCRFTPRequest alloc] initWithURL:[NSURL URLWithString:@"ftp://192.168.1.101/"] 
 toUploadFile:[[NSBundle mainBundle] pathForResource:@"Info" ofType:@"plist"]];
 
 ftpRequest.username = @"testuser"; 
 ftpRequest.password = @"testuser"; 
 
-ftpRequest.delegate = self; 
-ftpRequest.didFinishSelector = @selector(uploadFinished:); 
-ftpRequest.didFailSelector = @selector(uploadFailed:); 
-ftpRequest.willStartSelector = @selector(uploadWillStart:); 
-ftpRequest.didChangeStatusSelector = @selector(requestStatusChanged:); 
-ftpRequest.bytesWrittenSelector = @selector(uploadBytesWritten:); 
+// Specify a custom upload file name (optional)
+ftpRequest.customUploadFileName = @"App_Info.plist";
+
+// The delegate must implement the SCRFTPRequestDelegate protocol
+ftpRequest.delegate = self;  
 
 [ftpRequest startRequest];
 ```
 
 Implement the callbacks (they are performed on the main thread, so you can invoke your UI components safely):
 
-```objective-c
-- (void)uploadFinished:(SCRFTPRequest *)request { 
+```
+// Required delegate methods
+- (void)ftpRequestDidFinish:(SCRFTPRequest *)request { 
 
 	NSLog(@"Upload finished."); 
-	[request release]; 
 }
 
-- (void)uploadFailed:(SCRFTPRequest *)request {
+- (void)ftpRequest:(SCRFTPRequest *)request didFailWithError:(NSError *)error {
 
-	NSLog(@"Upload failed: %@", [request.error localizedDescription]); 
-	[request release]; 
+	NSLog(@"Upload failed: %@", [error localizedDescription]); 
 }
 
-- (void)uploadWillStart:(SCRFTPRequest *)request { 
+// Optional delegate methods
+- (void)ftpRequestWillStart:(SCRFTPRequest *)request { 
 
 	NSLog(@"Will transfer %d bytes.", request.fileSize); 
 }
 
-- (void)uploadBytesWritten:(SCRFTPRequest *)request { 
+- (void)ftpRequest:(SCRFTPRequest *)request didWriteBytes:(NSUInteger)bytesWritten { 
 
-	NSLog(@"Transferred: %d", request.bytesWritten); 
+	NSLog(@"Transferred: %d", bytesWritten); 
 }
 
-- (void)requestStatusChanged:(SCRFTPRequest *)request {
+- (void)ftpRequest:(SCRFTPRequest *)request didChangeStatus:(SCRFTPRequestStatus)status {
 
-	switch (request.status) { 
+	switch (status) { 
 	case SCRFTPRequestStatusOpenNetworkConnection: 
 		NSLog(@"Opened connection."); 
 		break; 
@@ -89,14 +112,14 @@ Implement the callbacks (they are performed on the main thread, so you can invok
 ```
 Cancel the operation this way
 
-```objective-c
+```
 [ftpRequest cancelRequest];
 ```
 
 ###Create directory
 To create a directory you will need practically the same infrastructure except for the initialization code may look like this:
 
-```objective-c
+```
 SCRFTPRequest *ftpRequest = [[SCRFTPRequest alloc] initWithURL:[NSURL URLWithString:@"ftp://192.168.1.101/"] 
 toCreateDirectory:@"SCRFTPRequest"];
   
@@ -104,10 +127,6 @@ ftpRequest.username = @"testuser";
 ftpRequest.password = @"testuser";
 	
 ftpRequest.delegate = self;
-ftpRequest.didFinishSelector = @selector(createFinished:);
-ftpRequest.didFailSelector = @selector(createFailed:);
-ftpRequest.willStartSelector = @selector(createWillStart:);
-ftpRequest.didChangeStatusSelector = @selector(requestStatusChanged:);
 	
 [ftpRequest startRequest];
 ```

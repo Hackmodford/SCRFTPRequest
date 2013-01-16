@@ -47,55 +47,41 @@ static NSError *SCRFTPUnableToCreateRequestError;
 static NSOperationQueue *sharedRequestQueue = nil;
 
 @interface SCRFTPRequest (/* Private */)
+<NSStreamDelegate>
+{
+	BOOL _complete;
+	
+	/* State */
+	UInt8 _buffer[kSCRFTPRequestBufferSize];
+	UInt32 _bufferOffset;
+	UInt32 _bufferLimit;
+}
 
-@property (nonatomic, retain) NSOutputStream *writeStream;
-@property (nonatomic, retain) NSInputStream *readStream;
-@property (nonatomic, retain) NSDate *timeOutDate;
-@property (nonatomic, retain) NSRecursiveLock *cancelledLock;
-
-- (void)applyCredentials;
-- (void)cleanUp;
-- (NSError *)constructErrorWithCode:(NSInteger)code message:(NSString *)message;
-- (void)failWithError:(NSError *)error;
-- (void)initializeComponentWithURL:(NSURL *)ftpURL operation:(SCRFTPRequestOperation)operation;
-- (BOOL)isComplete;
-- (void)requestFinished;
-- (void)setStatus:(SCRFTPRequestStatus)status;
-- (void)startUploadRequest;
-- (void)handleUploadEvent:(NSStreamEvent)eventCode;
-- (void)startCreateDirectoryRequest;
-- (void)handleCreateDirectoryEvent:(NSStreamEvent)eventCode;
-- (void)resetTimeout;
+@property (nonatomic, strong) NSOutputStream *writeStream;
+@property (nonatomic, strong) NSInputStream *readStream;
+@property (nonatomic, strong) NSDate *timeOutDate;
+@property (nonatomic, strong) NSRecursiveLock *cancelledLock;
 
 @end
 
 @implementation SCRFTPRequest
 
-@synthesize delegate = _delegate, didFinishSelector = _didFinishSelector, didFailSelector = _didFailSelector;
-@synthesize willStartSelector = _willStartSelector, didChangeStatusSelector = _didChangeStatusSelector, bytesWrittenSelector = _bytesWrittenSelector;
-@synthesize fileSize = _fileSize, bytesWritten = _bytesWritten, error = _error;
-@synthesize operation = _operation;
-@synthesize userInfo = _userInfo;
-@synthesize username = _username, password = _password;
-@synthesize ftpURL = _ftpURL, filePath = _filePath, directoryName = _directoryName;
-@synthesize status = _status;
-
-@synthesize timeOutSeconds = _timeOutSeconds;
-@synthesize timeOutDate = _timeOutDate;
-@synthesize cancelledLock = _cancelledLock;
+static inline void performOnMainThread(void (^block)()) {
+    [[NSOperationQueue mainQueue] addOperations:@[[NSBlockOperation blockOperationWithBlock:block]]
+                              waitUntilFinished:![NSThread isMainThread]];
+}
 
 - (void)setStatus:(SCRFTPRequestStatus)status {
 	
 	if (_status != status) {
 		_status = status;
-		if (self.didChangeStatusSelector && [self.delegate respondsToSelector:self.didChangeStatusSelector]) {
-			[self.delegate performSelectorOnMainThread:self.didChangeStatusSelector withObject:self waitUntilDone:[NSThread isMainThread]];
+		if ([self.delegate respondsToSelector:@selector(ftpRequestDidChangeStatus:)]) {
+            performOnMainThread(^{
+                [self.delegate ftpRequest:self didChangeStatus:_status];
+            });
 		}
 	}
 }
-
-/* Private */
-@synthesize writeStream = _writeStream, readStream = _readStream;
 
 #pragma mark init / dealloc
 
@@ -103,26 +89,26 @@ static NSOperationQueue *sharedRequestQueue = nil;
 	
 	if (self == [SCRFTPRequest class]) {
 		
-		SCRFTPRequestTimedOutError = [[NSError errorWithDomain:SCRFTPRequestErrorDomain
+		SCRFTPRequestTimedOutError = [NSError errorWithDomain:SCRFTPRequestErrorDomain
 														 code:SCRFTPRequestTimedOutErrorType
 													 userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
 															   NSLocalizedString(@"The request timed out.", @""),
-															   NSLocalizedDescriptionKey, nil]] retain];	
-		SCRFTPAuthenticationError = [[NSError errorWithDomain:SCRFTPRequestErrorDomain
+															   NSLocalizedDescriptionKey, nil]];
+		SCRFTPAuthenticationError = [NSError errorWithDomain:SCRFTPRequestErrorDomain
 														code:SCRFTPAuthenticationErrorType
 													userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
 															  NSLocalizedString(@"Authentication needed.", @""),
-															  NSLocalizedDescriptionKey, nil]] retain];
-		SCRFTPRequestCancelledError = [[NSError errorWithDomain:SCRFTPRequestErrorDomain
+															  NSLocalizedDescriptionKey, nil]];
+		SCRFTPRequestCancelledError = [NSError errorWithDomain:SCRFTPRequestErrorDomain
 														  code:SCRFTPRequestCancelledErrorType
 													  userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
 																NSLocalizedString(@"The request was cancelled.", @""),
-																NSLocalizedDescriptionKey, nil]] retain];
-		SCRFTPUnableToCreateRequestError = [[NSError errorWithDomain:SCRFTPRequestErrorDomain
+																NSLocalizedDescriptionKey, nil]];
+		SCRFTPUnableToCreateRequestError = [NSError errorWithDomain:SCRFTPRequestErrorDomain
 															   code:SCRFTPUnableToCreateRequestErrorType
 														   userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
 																	 NSLocalizedString(@"Unable to create request (bad url?)", @""),
-																	 NSLocalizedDescriptionKey,nil]] retain];
+																	 NSLocalizedDescriptionKey,nil]];
 	}
 	
 	[super initialize];
@@ -172,43 +158,22 @@ static NSOperationQueue *sharedRequestQueue = nil;
 	self.ftpURL = ftpURL;
 	self.operation = operation;
 	self.timeOutSeconds = 10;
-	self.cancelledLock = [[[NSRecursiveLock alloc] init] autorelease];
+	self.cancelledLock = [[NSRecursiveLock alloc] init];
 }
 
 + (id)requestWithURL:(NSURL *)ftpURL toDownloadFile:(NSString *)filePath {
 	
-	return [[[self alloc] initWithURL:ftpURL toDownloadFile:filePath] autorelease];
+	return [[self alloc] initWithURL:ftpURL toDownloadFile:filePath];
 }
 
 + (id)requestWithURL:(NSURL *)ftpURL toUploadFile:(NSString *)filePath {
 	
-	return [[[self alloc] initWithURL:ftpURL toUploadFile:filePath] autorelease];
+	return [[self alloc] initWithURL:ftpURL toUploadFile:filePath];
 }
 
 + (id)requestWithURL:(NSURL *)ftpURL toCreateDirectory:(NSString *)directoryName {
 	
-	return [[[self alloc] initWithURL:ftpURL toCreateDirectory:directoryName] autorelease];
-}
-
-- (void)dealloc {
-	
-	[_writeStream release];
-	[_readStream release];
-	
-	[_error release];
-	
-	[_userInfo release];
-	
-	[_username release];
-	[_password release];
-	
-	[_ftpURL release];
-	[_filePath release];
-	[_directoryName release];
-	
-	[_cancelledLock release];
-	
-	[super dealloc];
+	return [[self alloc] initWithURL:ftpURL toCreateDirectory:directoryName];
 }
 
 #pragma mark Request logic
@@ -254,32 +219,32 @@ static NSOperationQueue *sharedRequestQueue = nil;
 
 - (void)main {
 	
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	
-	[[self cancelledLock] lock];
-	
-	[self startRequest];
-	[self resetTimeout];
-	
-	[[self cancelledLock] unlock];
-	
-	/* Main loop */
-	while (![self isCancelled] && ![self isComplete]) {
-		
-		[[self cancelledLock] lock];
-		
-		/* Do we need to timeout? */
-		if ([[self timeOutDate] timeIntervalSinceNow] < 0) {
-			[self failWithError:SCRFTPRequestTimedOutError];
-			break;
-		}
-		
-		[[self cancelledLock] unlock];
-		
-		[[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[self timeOutDate]];
-	}
-	
-	[pool release];
+	@autoreleasepool {
+        
+        [[self cancelledLock] lock];
+        
+        [self startRequest];
+        [self resetTimeout];
+        
+        [[self cancelledLock] unlock];
+        
+        /* Main loop */
+        while (![self isCancelled] && ![self isComplete]) {
+            
+            [[self cancelledLock] lock];
+            
+            /* Do we need to timeout? */
+            if ([[self timeOutDate] timeIntervalSinceNow] < 0) {
+                [self failWithError:SCRFTPRequestTimedOutError];
+                break;
+            }
+            
+            [[self cancelledLock] unlock];
+            
+            [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[self timeOutDate]];
+        }
+    
+}
 }
 
 - (void)resetTimeout
@@ -320,8 +285,7 @@ static NSOperationQueue *sharedRequestQueue = nil;
 - (void)stream:(NSStream *)stream handleEvent:(NSStreamEvent)eventCode {
 	
 	//[[self cancelledLock] lock];
-	
-    assert(stream == self.writeStream);
+    NSAssert(stream == self.writeStream, @"Stream should be equal to write stream.");
 	
 	[self resetTimeout];
 	
@@ -348,7 +312,8 @@ static NSOperationQueue *sharedRequestQueue = nil;
 		return;
 	}
 	
-	CFStringRef fileName = (CFStringRef)[self.filePath lastPathComponent];
+	CFStringRef fileName = CFBridgingRetain(self.customUploadFileName ? self.customUploadFileName : [self.filePath lastPathComponent]);
+    
 	if (!fileName) {
 		[self failWithError:
 		 [self constructErrorWithCode:SCRFTPInternalErrorWhileBuildingRequestType
@@ -357,8 +322,9 @@ static NSOperationQueue *sharedRequestQueue = nil;
 									   self.filePath]]];
 		return;
 	}
-	
-	CFURLRef uploadUrl = CFURLCreateCopyAppendingPathComponent(kCFAllocatorDefault, (CFURLRef)self.ftpURL, fileName, false);
+
+	CFURLRef uploadUrl = CFURLCreateCopyAppendingPathComponent(kCFAllocatorDefault, (__bridge CFURLRef)self.ftpURL, fileName, false);
+    CFRelease(fileName);
 	if (!uploadUrl) {
 		[self failWithError:[self constructErrorWithCode:SCRFTPInternalErrorWhileBuildingRequestType
 												 message:NSLocalizedString(@"Unable to build URL to upload.", @"")]];
@@ -373,8 +339,10 @@ static NSOperationQueue *sharedRequestQueue = nil;
 		return;
 	} else {
 		_fileSize = [fileAttributes fileSize];
-		if (self.willStartSelector && [self.delegate respondsToSelector:self.willStartSelector]) {
-			[self.delegate performSelectorOnMainThread:self.willStartSelector withObject:self waitUntilDone:[NSThread isMainThread]];
+		if ([self.delegate respondsToSelector:@selector(ftpRequestWillStartUpload:)]) {
+            performOnMainThread(^{
+                [self.delegate ftpRequestWillStart:self];
+            });
 		}
 	}
 	
@@ -397,19 +365,16 @@ static NSOperationQueue *sharedRequestQueue = nil;
 		 [self constructErrorWithCode:SCRFTPUnableToCreateRequestErrorType
 							  message:[NSString stringWithFormat:
 									   NSLocalizedString(@"Cannot open FTP connection to %@", @""),
-									   (NSURL *)uploadUrl]]];
-		CFRelease(uploadUrl);
+									   CFBridgingRelease(uploadUrl)]]];
 		return;
 	}
 	CFRelease(uploadUrl);
 	
-	self.writeStream = (NSOutputStream *)uploadStream;
+	self.writeStream = CFBridgingRelease(uploadStream);
 	[self applyCredentials];
 	self.writeStream.delegate = self;
 	[self.writeStream scheduleInRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
 	[self.writeStream open];
-	
-	CFRelease(uploadStream);
 }
 
 - (void)handleUploadEvent:(NSStreamEvent)eventCode {
@@ -458,8 +423,10 @@ static NSOperationQueue *sharedRequestQueue = nil;
 					
 					[self setStatus:SCRFTPRequestStatusWritingToStream];
 					
-					if (self.bytesWrittenSelector && [self.delegate respondsToSelector:self.bytesWrittenSelector]) {
-						[self.delegate performSelectorOnMainThread:self.bytesWrittenSelector withObject:self waitUntilDone:[NSThread isMainThread]];
+					if ([self.delegate respondsToSelector:@selector(ftpRequest:didWriteBytes:)]) {
+                        performOnMainThread(^{
+                            [self.delegate ftpRequest:self didWriteBytes:_bytesWritten];
+                        });
 					}
 					
                     _bufferOffset += _bytesWritten;
@@ -474,7 +441,7 @@ static NSOperationQueue *sharedRequestQueue = nil;
 			/* Ignore */
         } break;
         default: {
-            assert(NO);
+            NSAssert(NO, @"Default should never happen.");
         } break;
     }
 }
@@ -499,19 +466,19 @@ static NSOperationQueue *sharedRequestQueue = nil;
 		 [self constructErrorWithCode:SCRFTPUnableToCreateRequestErrorType
 							  message:[NSString stringWithFormat:
 									   NSLocalizedString(@"Cannot open FTP connection to %@", @""),
-									   (NSURL *)createUrl]]];
-		CFRelease(createUrl);
+									   (__bridge_transfer NSURL *)createUrl]]];
+//		CFRelease(createUrl);
 		return;
 	}
 	CFRelease(createUrl);
 	
-	self.writeStream = (NSOutputStream *)createStream;
+	self.writeStream = (__bridge_transfer NSOutputStream *)createStream;
 	[self applyCredentials];
 	self.writeStream.delegate = self;
 	[self.writeStream scheduleInRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
 	[self.writeStream open];
 	
-	CFRelease(createStream);
+//	CFRelease(createStream);
 }
 
 - (void)handleCreateDirectoryEvent:(NSStreamEvent)eventCode {
@@ -526,10 +493,10 @@ static NSOperationQueue *sharedRequestQueue = nil;
              * to the MKD command. */
         } break;
         case NSStreamEventHasBytesAvailable: {
-            assert(NO); /* Should never happen for the output stream. */
+            NSAssert(NO, @"Should never happen for the output stream."); /* Should never happen for the output stream. */
         } break;
         case NSStreamEventHasSpaceAvailable: {
-            assert(NO);
+            NSAssert(NO, @"Should never happen for the output stream.");
         } break;
         case NSStreamEventErrorOccurred: {
             /* -streamError does not return a useful error domain value, so we 
@@ -549,7 +516,7 @@ static NSOperationQueue *sharedRequestQueue = nil;
 			[self requestFinished];
         } break;
         default: {
-            assert(NO);
+            NSAssert(NO, @"Default should never happen for the output stream.");
         } break;
     }	
 }
@@ -580,9 +547,9 @@ static NSOperationQueue *sharedRequestQueue = nil;
 	
 	[self setStatus:SCRFTPRequestStatusClosedNetworkConnection];
 	
-	if (self.didFinishSelector && [self.delegate respondsToSelector:self.didFinishSelector]) {
-		[self.delegate performSelectorOnMainThread:self.didFinishSelector withObject:self waitUntilDone:[NSThread isMainThread]];
-	}
+    performOnMainThread(^{
+        [self.delegate ftpRequestDidFinish:self];
+    });
 }
 
 - (void)failWithError:(NSError *)error {
@@ -597,9 +564,9 @@ static NSOperationQueue *sharedRequestQueue = nil;
 	[self cleanUp];
 	[self setStatus:SCRFTPRequestStatusError];
 	
-	if (self.didFailSelector && [self.delegate respondsToSelector:self.didFailSelector]) {
-		[self.delegate performSelectorOnMainThread:self.didFailSelector withObject:self waitUntilDone:[NSThread isMainThread]];
-	}
+    performOnMainThread(^{
+        [self.delegate ftpRequest:self didFailWithError:self.error];
+    });
 }
 
 - (void)cleanUp {
