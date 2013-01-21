@@ -339,7 +339,7 @@ static inline void performOnMainThread(void (^block)()) {
 		return;
 	} else {
 		_fileSize = [fileAttributes fileSize];
-		if ([self.delegate respondsToSelector:@selector(ftpRequestWillStartUpload:)]) {
+		if ([self.delegate respondsToSelector:@selector(ftpRequestWillStart:)]) {
             performOnMainThread(^{
                 [self.delegate ftpRequestWillStart:self];
             });
