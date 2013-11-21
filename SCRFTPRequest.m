@@ -75,7 +75,7 @@ static inline void performOnMainThread(void (^block)()) {
 	
 	if (_status != status) {
 		_status = status;
-		if ([self.delegate respondsToSelector:@selector(ftpRequestDidChangeStatus:)]) {
+		if ([self.delegate respondsToSelector:@selector(ftpRequest:didChangeStatus:)]) {
             performOnMainThread(^{
                 [self.delegate ftpRequest:self didChangeStatus:_status];
             });
